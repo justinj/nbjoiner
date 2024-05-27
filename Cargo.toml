@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 prettytable-rs = "0.10.0"
+rand = "0.8.5"

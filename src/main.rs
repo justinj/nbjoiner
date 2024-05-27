@@ -1,20 +1,24 @@
 use std::collections::{HashMap, HashSet};
 
 use prettytable::{Cell, Row, Table};
+use rand::Rng;
 
 #[derive(Default, Debug)]
 struct Graph {
-    edges: HashMap<usize, Vec<usize>>,
+    edges: Vec<Vec<usize>>,
 }
 
 impl Graph {
     fn edge(&mut self, a: usize, b: usize) {
-        self.edges.entry(a).or_insert_with(Vec::new).push(b);
-        self.edges.entry(b).or_insert_with(Vec::new).push(a);
+        while self.edges.len() <= a.max(b) {
+            self.edges.push(Vec::new());
+        }
+        self.edges[a].push(b);
+        self.edges[b].push(a);
     }
 
-    fn neighbours(&self, node: usize) -> Vec<usize> {
-        self.edges.get(&node).cloned().unwrap_or_default()
+    fn neighbours(&self, vertex: usize) -> Vec<usize> {
+        self.edges.get(vertex).cloned().unwrap_or_default()
     }
 }
 
@@ -228,6 +232,38 @@ fn main() {
     let planner = Planner::default().join(r).join(t).join(s);
 
     let plan = planner.plan();
+    let result = plan
+        .into_iter()
+        .reduce(|result, next| result.join(&next))
+        .unwrap();
+
+    result.print();
+
+    let mut many_relations: Vec<_> = (0..10)
+        .map(|i| {
+            Relation::new_with_data(
+                [format!("col_{}", i), format!("col_{}", i + 1)],
+                (0..10)
+                    .map(|j| vec![j * 10i64.pow(i), j * 10i64.pow(i + 1)])
+                    .collect::<Vec<_>>(),
+            )
+        })
+        .collect();
+
+    let mut rng = rand::thread_rng();
+    for i in 0..9 {
+        many_relations.swap(i, rng.gen_range(i..10));
+    }
+
+    let plan = many_relations
+        .into_iter()
+        .fold(Planner::default(), |planner, rel| planner.join(rel))
+        .plan();
+
+    for rel in &plan {
+        rel.print();
+    }
+
     let result = plan
         .into_iter()
         .reduce(|result, next| result.join(&next))
