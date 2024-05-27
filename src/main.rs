@@ -38,7 +38,7 @@ impl Planner {
         self
     }
 
-    fn plan(self) -> Vec<Relation> {
+    fn plan(mut self) -> Vec<Relation> {
         let mut plan = vec![];
         let mut remaining: HashSet<_> = (0..self.joined_tables.len()).collect();
         // Grab an unjoined relation.
@@ -58,14 +58,13 @@ impl Planner {
             }
         }
 
-        let mut tables = self.joined_tables.into_iter().map(Some).collect::<Vec<_>>();
         plan.into_iter()
-            .map(|i| tables[i].take().unwrap())
+            .map(|i| std::mem::take(&mut self.joined_tables[i]))
             .collect()
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct Relation {
     col_names: Vec<String>,
     data: Vec<Vec<i64>>,
@@ -152,18 +151,27 @@ impl Relation {
     }
 
     fn print(&self) {
+        let mut sorted_cols = self
+            .col_names
+            .iter()
+            .cloned()
+            .enumerate()
+            .map(|(i, x)| (x, i))
+            .collect::<Vec<_>>();
+        sorted_cols.sort();
         let mut table = Table::new();
         table.add_row(Row::new(
-            self.col_names
+            sorted_cols
                 .iter()
-                .map(|x| Cell::new(x.as_str()))
+                .map(|(name, _)| Cell::new(name.as_str()))
                 .collect(),
         ));
         for row in self.data.iter() {
             table.add_row(Row::new(
-                row.iter()
-                    .map(|x| Cell::new(format!("{}", x).as_str()))
-                    .collect(),
+                sorted_cols
+                    .iter()
+                    .map(|(_, i)| Cell::new(format!("{}", row[*i]).as_str()))
+                    .collect::<Vec<_>>(),
             ));
         }
 
@@ -183,6 +191,11 @@ fn main() {
         .row([4, 20])
         .row([6, 30]);
 
+    println!("R:");
+    r.print();
+    println!("S:");
+    s.print();
+    println!("R join S:");
     r.join(&s).print();
 
     let t = Relation::new(["c", "d"])
@@ -215,12 +228,10 @@ fn main() {
     let planner = Planner::default().join(r).join(t).join(s);
 
     let plan = planner.plan();
-    println!("{:?}", plan);
     let result = plan
         .into_iter()
         .reduce(|result, next| result.join(&next))
         .unwrap();
 
     result.print();
-    // println!("{:?}", result);
 }
